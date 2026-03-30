@@ -19,7 +19,7 @@ client = Groq(api_key=api_key)
 # 🎯 Başlık
 st.title("MEB Yönetmelik Asistanı")
 
-# 🧠 VECTOR DB
+# 🧠 VECTOR DB YÜKLE
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -32,11 +32,16 @@ def load_vector_db():
 
 vector_db = load_vector_db()
 
-# 🤖 SORGULAMA
+# 🤖 SORGULAMA FONKSİYONU
 def okul_asistani_sorgula(soru):
-    docs = vector_db.similarity_search(soru, k=5)
+    docs = vector_db.similarity_search(soru, k=3)
 
-    baglam = "\n\n".join([doc.page_content for doc in docs])
+    # Eğer veri yoksa
+    if not docs:
+        return "Veritabanında uygun bilgi bulunamadı."
+
+    # 🔥 baglamı kısalt (çok önemli)
+    baglam = "\n\n".join([doc.page_content[:500] for doc in docs])
 
     chat_completion = client.chat.completions.create(
         messages=[
@@ -49,7 +54,7 @@ def okul_asistani_sorgula(soru):
                 "content": f"Bağlam:\n{baglam}\n\nSoru: {soru}"
             }
         ],
-        model="llama3-8b-8192",
+        model="mixtral-8x7b-32768",  # ✅ LLAMA DEĞİL
         temperature=0,
     )
 
