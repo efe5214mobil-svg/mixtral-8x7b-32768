@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import re
 import pandas as pd
+import camelot
 
 # 🔐 .env yükle
 load_dotenv()
@@ -17,11 +18,13 @@ if not api_key:
 
 client = Groq(api_key=api_key)
 
-# 🎯 Başlık
-st.title("MEB Yönetmelik Asistanı - Sohbet Hafızalı")
-st.info("⚠️ Sadece MEB yönetmeliği ile ilgili sorular sorabilirsiniz. Uygunsuz sorular yanıtlanmayacaktır.")
+st.title("Okul Asistanı - Ders Programı & MEB Yönetmeliği")
 
-# 🧠 VECTOR DB
+st.info("⚠️ 1) MEB yönetmeliği soruları sorabilirsiniz.\n⚠️ 2) Ders programı için sınıf ismi yazabilirsiniz (örn. 9/B, 9B, 9-B).")
+
+# -----------------------------
+# MEB Asistanı Fonksiyonları
+# -----------------------------
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -33,31 +36,24 @@ def load_vector_db():
 
 vector_db = load_vector_db()
 
-# 🗂️ Session State ile sohbet geçmişini tut
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
-# 🔄 Tekrarlanan sayıları ve boşlukları temizle
 def temizle_cevap(cevap):
     cevap = re.sub(r'(\b\d{2,4}\b)(?:/\s*\1)+', r'\1', cevap)
     cevap = re.sub(r'\s{2,}', ' ', cevap)
     return cevap
 
-# ❌ Uygunsuz soruları engelle
 def uygunsuz_mu(soru):
     anahtar_kelimeler = ["küfür", "argo", "siyaset", "ülke", "din", "ırk", "cinsiyet"]
     soru_lower = soru.lower()
     return any(anahtar in soru_lower for anahtar in anahtar_kelimeler)
 
-# 🤖 SORGULAMA
 def okul_asistani_sorgula(soru):
     if uygunsuz_mu(soru):
         return "⚠️ Bu soru uygun değil. Lütfen yalnızca MEB yönetmeliği ile ilgili resmi sorular sorun.", None, None
 
-    # 🔍 arama sorgusu
     arama_sorgusu = f"{soru} meb yönetmelik maddesi devamsızlık şartları"
-
-    # 🔥 vektör DB arama
     docs = vector_db.similarity_search_with_score(arama_sorgusu, k=3)
     docs = sorted(docs, key=lambda x: x[1])[:3]
     docs = [doc[0] for doc in docs]
@@ -65,10 +61,7 @@ def okul_asistani_sorgula(soru):
     if not docs:
         return "Veri bulunamadı.", None, None
 
-    # 🔥 bağlam oluştur
     baglam = "\n\n".join([doc.page_content[:500] for doc in docs])
-
-    # 🤖 AI çağrısı için mesajlar
     messages = [
         {"role": "system", "content": """
 Sen MEB yönetmeliği uzmanısın.
@@ -82,11 +75,8 @@ Kurallar:
 - Anlamsız tekrarlar ve saçma ifadeler kullanma
 """}
     ]
-
-    # Önceki sohbeti ekle
     for msg in st.session_state.conversation:
         messages.append(msg)
-
     messages.append({"role": "user", "content": f"{baglam}\n\nSoru: {soru}"})
 
     chat_completion = client.chat.completions.create(
@@ -99,35 +89,76 @@ Kurallar:
     cevap = chat_completion.choices[0].message.content
     cevap = temizle_cevap(cevap)
 
-    # 📝 Session state güncelle
     st.session_state.conversation.append({"role": "user", "content": soru})
     st.session_state.conversation.append({"role": "assistant", "content": cevap})
 
-    # 📚 Kaynak ekleme ve tablo oluşturma
     kaynaklar = [doc.page_content[:200] for doc in docs]
     tablo_data = {"Madde Özeti": [doc.page_content[:100]+"..." for doc in docs]}
     tablo_df = pd.DataFrame(tablo_data)
 
     return cevap, tablo_df, kaynaklar
 
-# 💬 Chat Arayüzü
+# -----------------------------
+# Ders Programı Fonksiyonları
+# -----------------------------
+@st.cache_resource
+def load_pdf_tables(pdf_path):
+    tables = camelot.read_pdf(pdf_path, pages='all')
+    df_list = []
+    for t in tables:
+        df_temp = t.df
+        # Sınıf tahmini örnek regex
+        class_row = df_temp[df_temp.apply(lambda row: row.astype(str).str.contains(r'\d[/-]?B').any(), axis=1)]
+        if not class_row.empty:
+            sinif = class_row.iloc[0].astype(str).str.extract(r'(\d[/-]?B)')[0].values[0]
+        else:
+            sinif = "Bilinmiyor"
+        df_temp['Sınıf'] = sinif
+        df_list.append(df_temp)
+    df_all = pd.concat(df_list, ignore_index=True)
+    return df_all
+
+def normalize_class(s):
+    s = s.upper().replace("-", "/").replace(" ", "")
+    if "/" not in s and len(s) > 1:
+        s = s[0] + "/" + s[1:]
+    return s
+
+df_ders = load_pdf_tables("ders_programi.pdf")  # PDF yolu
+
+def ders_programi_goster(sinif_input):
+    sinif = normalize_class(sinif_input)
+    ders_programi = df_ders[df_ders['Sınıf'].apply(normalize_class) == sinif]
+    if not ders_programi.empty:
+        st.subheader(f"{sinif} Ders Programı ve Öğretmenler")
+        st.table(ders_programi)
+    else:
+        st.warning("Bu sınıf için veri bulunamadı!")
+
+# -----------------------------
+# Kullanıcı Girdisi
+# -----------------------------
+user_input = st.text_input("Sorunuzu veya sınıf ismini yazın:")
+
+if user_input:
+    if re.search(r'\d[/-]?B', user_input.upper()):
+        ders_programi_goster(user_input)
+    else:
+        # MEB sorusu
+        cevap, tablo_df, kaynaklar = okul_asistani_sorgula(user_input)
+        st.markdown(cevap)
+        if tablo_df is not None:
+            st.markdown("📊 **İlgili Madde Tablosu:**")
+            st.table(tablo_df)
+        if kaynaklar is not None:
+            st.markdown("📚 **Kaynaklar:**")
+            for k in kaynaklar:
+                st.markdown(f"- {k}")
+
+# -----------------------------
+# Önceki sohbeti göster
+# -----------------------------
 for msg in st.session_state.conversation:
     role = "user" if msg["role"] == "user" else "assistant"
     with st.chat_message(role):
         st.markdown(msg["content"])
-
-if prompt := st.chat_input("Sorunuzu yazın:"):
-    with st.spinner("Yanıt hazırlanıyor..."):
-        # Kullanıcının mesajını chat'te göster
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        cevap, tablo_df, kaynaklar = okul_asistani_sorgula(prompt)
-        with st.chat_message("assistant"):
-            st.markdown(cevap)
-            if tablo_df is not None:
-                st.markdown("📊 **İlgili Madde Tablosu:**")
-                st.table(tablo_df)
-            if kaynaklar is not None:
-                st.markdown("📚 **Kaynaklar:**")
-                for k in kaynaklar:
-                    st.markdown(f"- {k}")
