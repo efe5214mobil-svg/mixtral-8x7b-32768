@@ -19,8 +19,7 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 st.title("Okul Asistanı - Ders Programı & MEB Yönetmeliği")
-
-st.info("⚠️ 1) MEB yönetmeliği soruları sorabilirsiniz.\n⚠️ 2) Ders programı için sınıf ismi yazabilirsiniz (örn. 9/B, 9B, 9-B).")
+st.info("⚠️ 1) MEB yönetmeliği soruları sorabilirsiniz.\n⚠️ 2) Ders programı için sınıf ismi yazabilirsiniz (örn. 9/B, 9B, 9-B, 10C).")
 
 # -----------------------------
 # MEB Asistanı Fonksiyonları
@@ -107,10 +106,10 @@ def load_pdf_tables(pdf_path):
     df_list = []
     for t in tables:
         df_temp = t.df
-        # Sınıf tahmini örnek regex
-        class_row = df_temp[df_temp.apply(lambda row: row.astype(str).str.contains(r'\d[/-]?B').any(), axis=1)]
+        # Sınıf tahmini regex: tüm harfler A-D için
+        class_row = df_temp[df_temp.apply(lambda row: row.astype(str).str.contains(r'\d{1,2}[/-]?[A-D]').any(), axis=1)]
         if not class_row.empty:
-            sinif = class_row.iloc[0].astype(str).str.extract(r'(\d[/-]?B)')[0].values[0]
+            sinif = class_row.iloc[0].astype(str).str.extract(r'(\d{1,2}[/-]?[A-D])')[0].values[0]
         else:
             sinif = "Bilinmiyor"
         df_temp['Sınıf'] = sinif
@@ -121,10 +120,10 @@ def load_pdf_tables(pdf_path):
 def normalize_class(s):
     s = s.upper().replace("-", "/").replace(" ", "")
     if "/" not in s and len(s) > 1:
-        s = s[0] + "/" + s[1:]
+        s = s[:-1] + "/" + s[-1]  # son harfi ayır
     return s
 
-df_ders = load_pdf_tables("ders_programi.pdf")  # PDF yolu
+df_ders = load_pdf_tables("ders_programi.pdf")  # PDF dosya yolu
 
 def ders_programi_goster(sinif_input):
     sinif = normalize_class(sinif_input)
@@ -141,10 +140,10 @@ def ders_programi_goster(sinif_input):
 user_input = st.text_input("Sorunuzu veya sınıf ismini yazın:")
 
 if user_input:
-    if re.search(r'\d[/-]?B', user_input.upper()):
+    # Sınıf regex: 9A, 10C, 11-D, vb.
+    if re.search(r'\d{1,2}[/-]?[A-D]', user_input.upper()):
         ders_programi_goster(user_input)
     else:
-        # MEB sorusu
         cevap, tablo_df, kaynaklar = okul_asistani_sorgula(user_input)
         st.markdown(cevap)
         if tablo_df is not None:
