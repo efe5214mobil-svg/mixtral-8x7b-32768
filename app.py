@@ -32,28 +32,26 @@ siniflar = []
 if os.path.exists(dersprogram_klasor):
     for dosya in os.listdir(dersprogram_klasor):
         if dosya.lower().endswith(".png"):
-            # 9A.png → 9/A
-            sinif = dosya.replace(".png", "")
-            if len(sinif) == 2:  # Örn: 9A, 9B
-                sinif = f"{sinif[0]}/{sinif[1]}"
+            sinif = dosya.replace(".png", "").upper()  # 9A.png -> 9A
             siniflar.append(sinif)
     siniflar = sorted(siniflar)
 else:
     st.sidebar.warning(f"📂 Klasör bulunamadı: {dersprogram_klasor}")
 
-# Kullanıcıdan sınıf seçimi ve güvenli görsel yükleme
-if siniflar:
-    secim = st.sidebar.selectbox("Sınıfı seçin:", siniflar)
+# Sidebar selectbox'ta 9I gibi gösterimleri 9 I yap
+secim_gosterim = [s[0] + " " + s[1] for s in siniflar] if siniflar else []
 
-    # Dosya yolunu oluştur
-    dosya_adi = secim.replace("/", "") + ".png"
-    dosya_yolu = os.path.join(dersprogram_klasor, dosya_adi)
+if siniflar:
+    secim_index = st.sidebar.selectbox("Sınıfı seçin:", range(len(secim_gosterim)), format_func=lambda x: secim_gosterim[x])
+    secim = siniflar[secim_index]  # dosya adı eşleşmesi için orijinal
+    dosya_adi = secim + ".png"
+    dosya_yolu = os.path.join(dersprogram_klasor, dosya_adi.lower())  # küçük harf ile dosya yolu
 
     if os.path.exists(dosya_yolu):
         img = Image.open(dosya_yolu)
-        st.sidebar.image(img, caption=f"{secim} Ders Programı", use_column_width=True)
+        st.sidebar.image(img, caption=f"{secim_gosterim[secim_index]} Ders Programı", use_column_width=True)
     else:
-        st.sidebar.warning(f"{secim} için görsel bulunamadı!")
+        st.sidebar.warning(f"{secim_gosterim[secim_index]} için görsel bulunamadı!")
 else:
     st.sidebar.warning("📂 Klasörde PNG dosyası bulunamadı!")
 
