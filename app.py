@@ -8,36 +8,44 @@ import re
 import pandas as pd
 from PIL import Image
 
-# 🎨 Sayfa Ayarları ve Koyu Tema (Siyahlımsı Gri)
+# 🎨 Gelişmiş Gradyanlı Dark Tema
 st.set_page_config(page_title="MEB Yönetmelik Asistanı", layout="wide")
 
 st.markdown("""
     <style>
+    /* Arka plan gradyanı */
     .stApp {
-        background-color: #1e1e1e;
-        color: #ffffff;
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d3436 100%);
+        color: #e0e0e0;
     }
-    .stChatMessage {
-        background-color: #2d2d2d !important;
-        border-radius: 10px;
-    }
+    
+    /* Sidebar düzeni */
     section[data-testid="stSidebar"] {
-        background-color: #121212 !important;
+        background-color: rgba(15, 15, 15, 0.8) !important;
+        border-right: 1px solid #444;
     }
+    
+    /* Mesaj balonları */
+    .stChatMessage {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px !important;
+        margin-bottom: 10px;
+    }
+
+    /* Input alanı */
     .stTextInput input {
-        background-color: #333 !important;
+        background-color: #252525 !important;
         color: white !important;
+        border-radius: 10px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 load_dotenv()
-
-# 🔑 API KEY
 api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=api_key)
 
-# 🧠 VECTOR DB
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -48,109 +56,87 @@ vector_db = load_vector_db()
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
-# --- SIDEBAR & SIRALAMA MANTIĞI ---
-st.sidebar.header("📌 Sınıf Ders Programı")
+# --- SIDEBAR & DOSYA İSMİ TEMİZLEME ---
+st.sidebar.header("📌 Sınıf Panosu")
 dersprogram_klasor = "dersprogram_dosyasi"
 
-siniflar = []
-dosya_dict = {}
+dosya_haritasi = {} # { "Görünen Ad": "Gerçek Yol" }
 
 if os.path.exists(dersprogram_klasor):
-    for dosya in os.listdir(dersprogram_klasor):
-        if dosya.lower().endswith(".png"):
-            # Orijinal temizleme mantığı
-            sinif = dosya.replace(".png", "").upper().replace(" ", "")
-            siniflar.append(sinif)
-            dosya_dict[sinif] = os.path.join(dersprogram_klasor, dosya)
+    dosyalar = [f for f in os.listdir(dersprogram_klasor) if f.lower().endswith(".png")]
     
-    # 🎯 Senin istediğin özel sıralama: Önce 12 -> 9, sonra A, B, C...
-    def sinif_sort_key(s):
-        numara_part = ''.join(filter(str.isdigit, s))
-        numara = int(numara_part) if numara_part else 0
-        harf = ''.join(filter(str.isalpha, s)) or ""
-        return (-numara, harf) # Negatif numara büyükten küçüğe dizilmesini sağlar
-    
-    siniflar.sort(key=sinif_sort_key)
-else:
-    st.sidebar.warning(f"📂 Klasör bulunamadı: {dersprogram_klasor}")
+    # 🎯 İsim Temizleme Mantığı (12A.PN-G -> 12 - A)
+    for d in dosyalar:
+        # Sadece rakamları ve harfleri ayıkla (Örn: 12A)
+        temiz_isim = re.sub(r'[^a-zA-Z0-9]', '', d.replace(".png", ""))
+        
+        # Formatlama: "12A" -> "12 - A"
+        match = re.match(r"(\d+)([a-zA-Z]+)", temiz_isim)
+        if match:
+            gosterim_adi = f"{match.group(1)} - {match.group(2).upper()}"
+        else:
+            gosterim_adi = temiz_isim.upper()
+            
+        dosya_haritasi[gosterim_adi] = os.path.join(dersprogram_klasor, d)
 
-# Seçim gösterim formatı: 9A -> 9 - A
-def secim_gosterim_func(s):
-    if len(s) >= 2 and s[0].isdigit():
-        return f"{s[0:-1]} - {s[-1]}"
-    return s
-
-secim_gosterim = [secim_gosterim_func(s) for s in siniflar]
-
-if siniflar:
-    secim_index = st.sidebar.selectbox(
-        "Sınıfı seçin:",
-        range(len(secim_gosterim)),
-        format_func=lambda x: secim_gosterim[x]
+    # Sıralama (Önce 12, sonra 11...)
+    sirali_isimler = sorted(
+        dosya_haritasi.keys(), 
+        key=lambda x: (-int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0, x)
     )
-    secim = siniflar[secim_index]
-    img = Image.open(dosya_dict[secim])
-    st.sidebar.image(img, caption=f"{secim_gosterim[secim_index]} Programı", use_container_width=True)
 
-# ❌ GÜVENLİK FİLTRESİ
+    if sirali_isimler:
+        secilen_sinif = st.sidebar.selectbox("Sınıfı seçin:", sirali_isimler)
+        st.sidebar.image(Image.open(dosya_haritasi[secilen_sinif]), caption=f"{secilen_sinif} Ders Programı")
+else:
+    st.sidebar.error("Klasör bulunamadı!")
+
+# ❌ Güvenlik
 def uygunsuz_mu(soru):
-    yasakli = ["küfür", "argo", "siyaset", "din", "ırk", "ülke", "parti", "hükümet"]
-    return any(kelime in soru.lower() for kelime in yasakli)
+    yasakli = ["küfür", "argo", "siyaset", "din", "hakaret"]
+    return any(k in soru.lower() for k in yasakli)
 
-# 🤖 SORGULAMA (Detaycı & Açıklayıcı)
+# 🤖 Sorgulama
 def okul_asistani_sorgula(soru):
     if uygunsuz_mu(soru):
-        return "⚠️ Bu soru uygunsuz içerik barındırıyor. Sadece MEB yönetmeliği sorunuz.", None, None
+        return "⚠️ Bu içerik kurallarımıza uygun değil.", None
 
     docs = vector_db.similarity_search(soru, k=4)
     baglam = "\n\n".join([doc.page_content for doc in docs])
 
     messages = [
-        {"role": "system", "content": """Sen detaycı bir MEB yönetmelik uzmanısın. 
-        Cevaplarına mutlaka EVET veya HAYIR ile başla. 
-        Ardından yönetmelik maddelerine dayanarak detaylı ve teknik bir açıklama yap. 
-        Sadece bağlama sadık kal, dışına çıkma."""}
+        {"role": "system", "content": "Sen detaycı bir MEB uzmanısın. Cevabına EVET/HAYIR ile başla ve madde madde açıkla."}
     ]
-    
     messages.extend(st.session_state.conversation[-2:])
     messages.append({"role": "user", "content": f"Bağlam:\n{baglam}\n\nSoru: {soru}"})
 
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=messages,
-            model="llama-3.3-70b-versatile",
-            temperature=0,
-            max_tokens=800
-        )
-        cevap = chat_completion.choices[0].message.content
-    except:
-        cevap = "Bir hata oluştu veya bu konuda bilgi bulunamadı."
+    completion = client.chat.completions.create(
+        messages=messages,
+        model="llama-3.3-70b-versatile",
+        temperature=0,
+        max_tokens=1000
+    )
+    return completion.choices[0].message.content, docs
 
-    tablo_df = pd.DataFrame({"Madde Özeti": [doc.page_content[:150] + "..." for doc in docs]})
-    kaynaklar = [doc.page_content for doc in docs]
-
-    return cevap, tablo_df, kaynaklar
-
-# --- CHAT ARAYÜZÜ ---
+# --- ANA EKRAN ---
 st.title("🎓 MEB Yönetmelik Asistanı")
 
 for msg in st.session_state.conversation:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        st.write(msg["content"])
 
-if prompt := st.chat_input("Sorunuzu yazın..."):
+if prompt := st.chat_input("Soru sorun..."):
     st.session_state.conversation.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.write(prompt)
 
     with st.chat_message("assistant"):
-        cevap, tablo_df, kaynaklar = okul_asistani_sorgula(prompt)
+        cevap, kaynaklar = okul_asistani_sorgula(prompt)
         st.markdown(cevap)
         
-        if tablo_df is not None:
-            with st.expander("📊 Kaynak Maddeler"):
-                st.table(tablo_df)
+        if kaynaklar:
+            with st.expander("📚 Kaynak Yönetmelik Metni"):
                 for k in kaynaklar:
-                    st.caption(k)
+                    st.caption(k.page_content)
         
         st.session_state.conversation.append({"role": "assistant", "content": cevap})
