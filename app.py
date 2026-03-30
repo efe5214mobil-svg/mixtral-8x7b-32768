@@ -95,16 +95,17 @@ if os.path.exists(dersprogram_klasor):
         secilen_sinif = st.sidebar.selectbox("Sınıf Seçin:", sirali_isimler)
         st.sidebar.image(Image.open(dosya_haritasi[secilen_sinif]), use_container_width=True)
 
-# 🛡️ MAKSİMUM GÜVENLİK FİLTRESİ (Base64)
+# 🛡️ GÜVENLİK FİLTRESİ (Sadece Küfür/Hakaret Engelli, Mevzuat Kelimeleri Serbest)
 def uygunsuz_mu(soru):
-    # Bu liste; küfür, ırkçılık, +18 ve hakaret içeren tüm kelimelerin Base64 halidir.
-    data_enc = "a3VmdXIsYXJnbyxzaXlhc2V0LGRpbixpcmssaGFrYXJldCxwYXJ0aSxzZXgsc2Vrcyxwb3JubyxjaXBsYWssbWVtZSxnb3Qsc2lrLGFtayxwaXBpLHRhY2l6LG11c3RlaGNlbixnYXksbGV6Yml5ZW4sZmV0aXNsdWssdmFnaW5hLHBlbmlzLGVzY29ydCxuYWJlcixuYXNpbHNpbixzZWxhbSxtYWMsaGF2YSxmZW5lcmJhaGNlLGdhbGF0YXNhcmF5LG9jLGFtLGdvdCxwaWNoLHNpY21payx5YXJyYWssaXJramksZmFzaXN0LGthem9rLGdhdnVy"
+    # Bu liste sadece ağır küfürleri ve hakaretleri kapsar. 
+    # 'Özürlü' ve 'Özürsüz' gibi mevzuat kelimeleri listede yoktur ve engellenmez.
+    data_enc = "a3VmdXIsYXJnbyxzaXlhc2V0LGRpbixpcmssaGFrYXJldCxwYXJ0aSxzZXgsc2Vrcyxwb3JubyxjaXBsYWssbWVtZSxnb3Qsc2lrLGFtayxwaXBpLHRhY2l6LG11c3RlaGNlbixnYXksbGV6Yml5ZW4sZmV0aXNsdWssdmFnaW5hLHBlbmlzLGVzY29ydCxvYyxwaWNoLHNpY21payx5YXJyYWs="
     yasakli_liste = base64.b64decode(data_enc).decode('utf-8').split(',')
     s = soru.lower().strip()
     
     for kelime in yasakli_liste:
-        if kelime in s: # Kelime cümlenin herhangi bir yerinde geçiyorsa blokla
-            return True, "⚠️ **Güvenlik Engeli:** Girdiğiniz ifade akademik etik kurallara, topluluk ilkelerine veya MEB yönetmelik kapsamına uygun değildir."
+        if kelime in s:
+            return True, "⚠️ **Güvenlik Engeli:** Girdiğiniz ifade topluluk ilkelerine uygun değildir. Lütfen akademik dille devam ediniz."
     return False, ""
 
 # 🤖 SORGULAMA (MEB Yönetmelik Uzmanı)
@@ -118,15 +119,13 @@ def okul_asistani_sorgula(soru):
     messages = [
         {
             "role": "system", 
-            "content": """Sen Türkiye Cumhuriyeti MEB Yönetmelik Asistanısın. 
-            Görevin SADECE okul yönetmeliği, sınavlar, devamsızlık ve disiplin gibi konularda bilgi vermektir.
-            
+            "content": """Sen MEB Yönetmelik Asistanısın. 
             KESİN KURALLAR:
-            1. Siyaset, din, ırkçılık, cinsellik veya hakaret içeren hiçbir konuya girme.
-            2. 'Evet' veya 'Hayır' diyerek başlama. Direkt resmi veriyi paylaş.
-            3. 'Sorumluluk Sınavı' gibi Türkçe terimler kullan.
-            4. Özürlü devamsızlık sınırı 20 GÜNDÜR. Toplam 30 gündür.
-            5. Sınıf geçme barajı 50 ortalamadır. 3'ten fazla zayıfı olan (ortalama 50 altıysa) kalır."""
+            1. 'Özürlü devamsızlık' ve 'Özürsüz devamsızlık' terimlerini asla yasaklama, bunlar resmi terimlerdir.
+            2. Cevaplara asla 'Evet' veya 'Hayır' diyerek başlama. 
+            3. Sadece okul, sınav ve disiplin yönetmeliğine cevap ver.
+            4. Özürlü devamsızlık sınırı 20 GÜN, toplam sınır 30 GÜNDÜR.
+            5. Ortalama 50 altıysa en fazla 3 dersten sorumlu geçilebilir."""
         }
     ]
     messages.extend(st.session_state.conversation[-2:])
@@ -141,40 +140,50 @@ def okul_asistani_sorgula(soru):
         )
         return completion.choices[0].message.content, docs
     except:
-        return "Sistem şu an meşgul, lütfen yönetmelik çerçevesinde tekrar deneyin.", None
+        return "Şu an yanıt verilemiyor, lütfen tekrar deneyin.", None
 
 # --- ANA EKRAN ---
 st.title("🎓 MEB Yönetmelik Asistanı")
-st.caption("Resmi Ortaöğretim Kurumları Yönetmeliği Veri Tabanı")
 
-with st.expander("❓ Sıkça Sorulan Sorular"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**Devamsızlık ve Sorumluluk**")
-        st.write("- Özürlü devamsızlık hakkı kaç gündür?")
-        st.write("- Ortalamam 50 altındaysa sorumlu geçer miyim?")
-    with c2:
-        st.markdown("**Disiplin ve Kurallar**")
-        st.write("- Okulda telefon yakalatmanın cezası nedir?")
-        st.write("- Nakil şartları nelerdir?")
+# 💡 GENİŞLETİLMİŞ SIKÇA SORULAN SORULAR
+with st.expander("❓ Sıkça Sorulan Sorular (Kapsamlı Rehber)"):
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**📌 Devamsızlık Hakkında**")
+        st.write("- Özürlü devamsızlık hakkım toplam kaç gündür?")
+        st.write("- Özürsüz devamsızlık 10 günü geçerse ne olur?")
+        st.write("- Faaliyetli (görevli) olduğum günler devamsızlıktan sayılır mı?")
+        st.write("- Toplam devamsızlık sınırı 30 günü aşarsa ne yapılır?")
+        
+        st.markdown("**📌 Sınıf Geçme ve Notlar**")
+        st.write("- Yıl sonu ortalamam 50 altındaysa kalır mıyım?")
+        st.write("- Sorumluluk sınavları ne zaman ve nasıl yapılır?")
+        st.write("- E-Okul'da not girişi bittikten sonra not değiştirilir mi?")
+    with col2:
+        st.markdown("**📌 Disiplin ve Davranışlar**")
+        st.write("- Okulda cep telefonu kullanmanın yaptırımı nedir?")
+        st.write("- Kınama cezası alan öğrenci takdir/teşekkür alabilir mi?")
+        st.write("- Okul eşyasına zarar vermenin cezası nedir?")
+        
+        st.markdown("**📌 Nakil ve Kayıt**")
+        st.write("- Başka bir okula nakil olmak için şartlar nelerdir?")
+        st.write("- Açık liseye geçiş şartları güncel yönetmelikte nasıldır?")
+        st.write("- Meslek lisesinden Anadolu lisesine geçiş yapılır mı?")
 
 for msg in st.session_state.conversation:
     with st.chat_message(msg["role"]): st.write(msg["content"])
 
-if prompt := st.chat_input("Yönetmelik sorunuzu yazın..."):
+if prompt := st.chat_input("Yönetmelik sorunuzu buraya yazın..."):
     st.session_state.conversation.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.write(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Mevzuat inceleniyor..."):
+        with st.spinner("Mevzuat dosyaları taranıyor..."):
             cevap, kaynaklar = okul_asistani_sorgula(prompt)
             st.markdown(cevap)
-            
             if kaynaklar:
                 with st.expander("📖 Dayanak Yönetmelik Maddeleri (Görsel Analiz)"):
                     gorsel_mevzuat_ozeti(kaynaklar)
                     st.divider()
-                    for k in kaynaklar:
-                        st.caption(f"📍 {k.page_content}")
-        
+                    for k in kaynaklar: st.caption(f"📍 {k.page_content}")
         st.session_state.conversation.append({"role": "assistant", "content": cevap})
