@@ -29,30 +29,33 @@ dersprogram_klasor = "dersprogram_dosyasi"
 
 # Klasördeki tüm PNG dosyalarını tarayıp sınıf isimleri oluştur
 siniflar = []
-for dosya in os.listdir(dersprogram_klasor):
-    if dosya.endswith(".png"):
-        # 9A.png → 9/A
-        sinif = dosya.replace(".png", "")
-        if len(sinif) == 2:  # Örn: 9A, 9B
-            sinif = f"{sinif[0]}/{sinif[1]}"
-        siniflar.append(sinif)
-
-# Alfabetik sıraya göre
-siniflar = sorted(siniflar)
-
-# Kullanıcıdan sınıf seçimi
-secim = st.sidebar.selectbox("Sınıfı seçin:", siniflar)
-
-# Dosya yolunu oluştur
-dosya_adi = secim.replace("/", "") + ".png"
-dosya_yolu = os.path.join(dersprogram_klasor, dosya_adi)
-
-# Dosya var mı kontrol et ve göster
-if os.path.exists(dosya_yolu):
-    img = Image.open(dosya_yolu)
-    st.sidebar.image(img, caption=f"{secim} Ders Programı", use_column_width=True)
+if os.path.exists(dersprogram_klasor):
+    for dosya in os.listdir(dersprogram_klasor):
+        if dosya.lower().endswith(".png"):
+            # 9A.png → 9/A
+            sinif = dosya.replace(".png", "")
+            if len(sinif) == 2:  # Örn: 9A, 9B
+                sinif = f"{sinif[0]}/{sinif[1]}"
+            siniflar.append(sinif)
+    siniflar = sorted(siniflar)
 else:
-    st.sidebar.warning(f"{secim} için görsel bulunamadı!")
+    st.sidebar.warning(f"📂 Klasör bulunamadı: {dersprogram_klasor}")
+
+# Kullanıcıdan sınıf seçimi ve güvenli görsel yükleme
+if siniflar:
+    secim = st.sidebar.selectbox("Sınıfı seçin:", siniflar)
+
+    # Dosya yolunu oluştur
+    dosya_adi = secim.replace("/", "") + ".png"
+    dosya_yolu = os.path.join(dersprogram_klasor, dosya_adi)
+
+    if os.path.exists(dosya_yolu):
+        img = Image.open(dosya_yolu)
+        st.sidebar.image(img, caption=f"{secim} Ders Programı", use_column_width=True)
+    else:
+        st.sidebar.warning(f"{secim} için görsel bulunamadı!")
+else:
+    st.sidebar.warning("📂 Klasörde PNG dosyası bulunamadı!")
 
 # 🧠 VECTOR DB yükle
 @st.cache_resource
