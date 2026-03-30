@@ -48,7 +48,7 @@ if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
 # --- SIDEBAR & AKILLI SIRALAMA (12->9 ve A->Z) ---
-st.sidebar.header("📌 Kurumsal Birimler")
+st.sidebar.header("📌 Sınıflar")
 dersprogram_klasor = "dersprogram_dosyasi"
 dosya_haritasi = {}
 
@@ -121,7 +121,7 @@ def okul_asistani_sorgula(soru):
         return "Sistem şu an meşgul, lütfen kurumsal çerçevede tekrar deneyiniz.", None
 
 # --- ANA EKRAN ---
-st.title("🏛️ MEB Kurumsal Mevzuat Portalı")
+st.title("🏛️ MEB Yönetmelik Asistanı")
 
 with st.expander("💡 Sıkça Sorulan Sorular"):
     st.write("- Özürlü devamsızlık hakkı toplam kaç gündür?")
