@@ -2,14 +2,24 @@ import streamlit as st
 from groq import Groq
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+import os
+
+# 🔐 .env yükle (local için)
+load_dotenv()
+
+# 🔑 API KEY (önce .env, yoksa Streamlit Secrets)
+api_key = os.getenv("GROQ_API_KEY")
+
+if not api_key:
+    api_key = st.secrets["GROQ_API_KEY"]
+
+client = Groq(api_key=api_key)
 
 # 🎯 Başlık
 st.title("MEB Yönetmelik Asistanı")
 
-# 🔐 API KEY
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-# 🧠 VECTOR DB YÜKLE
+# 🧠 VECTOR DB
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
