@@ -16,13 +16,12 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 # 🎯 Başlık
-st.title("MEB Yönetmelik Asistanı")
+st.title("MEB Yönetmelik Asistanı - Sohbet Hafızalı")
 
 # 🧠 VECTOR DB
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
     db = Chroma(
         persist_directory="okul_asistani_gpt_db",
         embedding_function=embeddings
@@ -31,44 +30,46 @@ def load_vector_db():
 
 vector_db = load_vector_db()
 
+# 🗂️ Session State ile sohbet geçmişini tut
+if "conversation" not in st.session_state:
+    st.session_state.conversation = []
+
 # 🤖 SORGULAMA
 def okul_asistani_sorgula(soru):
-    # 🔍 daha iyi arama sorgusu
+    # 🔍 arama sorgusu
     arama_sorgusu = f"{soru} meb yönetmelik maddesi devamsızlık şartları"
 
-    # 🔥 gelişmiş arama
+    # 🔥 vektör DB arama
     docs = vector_db.similarity_search_with_score(arama_sorgusu, k=5)
-
-    # en iyi sonuçları seç
     docs = sorted(docs, key=lambda x: x[1])[:3]
     docs = [doc[0] for doc in docs]
 
     if not docs:
         return "Veri bulunamadı."
 
-    # 🔥 bağlam oluştur (kısaltılmış)
+    # 🔥 bağlam oluştur
     baglam = "\n\n".join([doc.page_content[:500] for doc in docs])
 
-    # 🤖 AI çağrısı
-    chat_completion = client.chat.completions.create(
-        messages=[
-            {
-                "role": "system",
-                "content": """
+    # 🤖 AI çağrısı için mesajlar
+    messages = [
+        {"role": "system", "content": """
 Sen MEB yönetmeliği uzmanısın.
-
 Kurallar:
 - Sadece verilen bağlama göre cevap ver
 - Eğer madde varsa belirt
 - En yakın bilgiyi kullan
 - "bulunamadı" deme
-"""
-            },
-            {
-                "role": "user",
-                "content": f"{baglam}\n\nSoru: {soru}"
-            }
-        ],
+"""}
+    ]
+
+    # Önceki sohbeti ekle
+    for msg in st.session_state.conversation:
+        messages.append(msg)
+
+    messages.append({"role": "user", "content": f"{baglam}\n\nSoru: {soru}"})
+
+    chat_completion = client.chat.completions.create(
+        messages=messages,
         model="gemma2-9b-it",
         temperature=0,
         max_tokens=500
@@ -76,14 +77,22 @@ Kurallar:
 
     cevap = chat_completion.choices[0].message.content
 
-    # 📚 kaynak ekleme
+    # 📝 Session state güncelle
+    st.session_state.conversation.append({"role": "user", "content": soru})
+    st.session_state.conversation.append({"role": "assistant", "content": cevap})
+
+    # 📚 Kaynak ekleme
     kaynaklar = [doc.page_content[:200] for doc in docs]
-
     return cevap + "\n\n📚 Kaynak:\n- " + "\n- ".join(kaynaklar)
-# ✍️ INPUT
-soru = st.text_input("Sorunuzu yazın:")
 
-if soru:
+# 💬 Chat Arayüzü
+for msg in st.session_state.conversation:
+    role = "user" if msg["role"] == "user" else "assistant"
+    with st.chat_message(role):
+        st.markdown(msg["content"])
+
+if prompt := st.chat_input("Sorunuzu yazın:"):
     with st.spinner("Yanıt hazırlanıyor..."):
-        cevap = okul_asistani_sorgula(soru)
-        st.write(cevap)
+        cevap = okul_asistani_sorgula(prompt)
+        with st.chat_message("assistant"):
+            st.markdown(cevap)
