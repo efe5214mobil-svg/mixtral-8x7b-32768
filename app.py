@@ -20,7 +20,7 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 # 🎯 Başlık
-st.title("MEB Yönetmelik Asistanı - Sohbet Hafızalı")
+st.title("MEB Yönetmelik Asistanı - Sohbet Hafızalı (Evet / Hayır)")
 st.info("⚠️ Sadece MEB yönetmeliği ile ilgili sorular sorabilirsiniz. Uygunsuz sorular yanıtlanmayacaktır.")
 
 # 🏫 Sınıf Ders Programı Görseli (Sidebar)
@@ -40,13 +40,11 @@ if os.path.exists(dersprogram_klasor):
     
     # Özel sıralama: önce 12 → 9, sonra A, B, C... 
     def sinif_sort_key(s):
-        # Örnek: 12A -> (12, 'A')
         numara = int(''.join(filter(str.isdigit, s)))
         harf = ''.join(filter(str.isalpha, s)) or ""
-        return (-numara, harf)  # -numara => ters sırala
+        return (-numara, harf)
     
     siniflar.sort(key=sinif_sort_key)
-
 else:
     st.sidebar.warning(f"📂 Klasör bulunamadı: {dersprogram_klasor}")
 
@@ -103,12 +101,12 @@ def uygunsuz_mu(soru):
     soru_lower = soru.lower()
     return any(anahtar in soru_lower for anahtar in anahtar_kelimeler)
 
-# 🤖 SORGULAMA
+# 🤖 SORGULAMA (Evet / Hayır / Bilmiyorum)
 def okul_asistani_sorgula(soru):
     if uygunsuz_mu(soru):
         return "⚠️ Bu soru uygun değil. Lütfen yalnızca MEB yönetmeliği ile ilgili resmi sorular sorun.", None, None
 
-    arama_sorgusu = f"{soru} meb yönetmelik maddesi devamsızlık şartları"
+    arama_sorgusu = f"{soru} meb yönetmelik maddesi"
 
     docs = vector_db.similarity_search_with_score(arama_sorgusu, k=3)
     docs = sorted(docs, key=lambda x: x[1])[:3]
@@ -124,12 +122,10 @@ def okul_asistani_sorgula(soru):
 Sen MEB yönetmeliği uzmanısın.
 Kurallar:
 - Sadece verilen bağlama göre cevap ver
-- Eğer madde varsa belirt
-- En yakın bilgiyi kullan
-- "Bulunamadı" deme
+- Cevap **yalnızca 'Evet' veya 'Hayır'** olabilir
+- Eğer cevap Evet/Hayır değilse 'Bilmiyorum' de
 - Cevapta küfür, hakaret, siyaset, din, ırk, cinsiyet ile ilgili içerik olamaz
-- Cevap sadece resmi MEB yönetmeliği ile ilgili olmalı
-- Anlamsız tekrarlar ve saçma ifadeler kullanma
+- Cevap resmi MEB yönetmeliğine dayalı olmalı
 """}
     ]
 
@@ -143,19 +139,21 @@ Kurallar:
             messages=messages,
             model="openai/gpt-oss-120b",
             temperature=0,
-            max_tokens=500
+            max_tokens=50
         )
 
         if hasattr(chat_completion.choices[0], "message") and hasattr(chat_completion.choices[0].message, "content"):
-            cevap = chat_completion.choices[0].message.content
+            cevap = chat_completion.choices[0].message.content.strip()
         elif hasattr(chat_completion.choices[0], "text"):
-            cevap = chat_completion.choices[0].text
+            cevap = chat_completion.choices[0].text.strip()
         else:
-            cevap = "⚠️ Yanıt alınamadı."
+            cevap = "Bilmiyorum"
     except Exception as e:
         cevap = f"⚠️ API çağrısında hata oluştu: {e}"
 
-    cevap = temizle_cevap(cevap)
+    # Cevabı temizle ve sadece Evet/Hayır/Bilmiyorum bırak
+    if cevap.lower() not in ["evet", "hayır"]:
+        cevap = "Bilmiyorum"
 
     st.session_state.conversation.append({"role": "user", "content": soru})
     st.session_state.conversation.append({"role": "assistant", "content": cevap})
