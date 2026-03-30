@@ -53,7 +53,7 @@ def okul_asistani_sorgula(soru):
                     "content": f"{baglam}\n\nSoru: {soru}"
                 }
             ],
-            model="gemma2-9b-it",  # ✅ EN STABİL
+            model="llama-3.1-8b-instant",  # ✅ EN STABİL
             temperature=0,
             max_tokens=500
         )
