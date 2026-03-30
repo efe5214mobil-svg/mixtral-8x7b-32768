@@ -1,56 +1,54 @@
 import streamlit as st
-from rag import okul_asistani_sorgula
-from vector_store import load_vector_db
 from groq import Groq
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# 🎯 Başlık
+st.title("MEB Yönetmelik Asistanı")
 
 # 🔐 API KEY
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 🎨 SAYFA AYARI
-st.set_page_config(page_title="Okul Asistanı", page_icon="🎓")
-
-st.title("🎓 MEB Yönetmelik Asistanı")
-
-# 🧠 VECTOR DB
+# 🧠 VECTOR DB YÜKLE
 @st.cache_resource
-def get_db():
-    return load_vector_db()
+def load_vector_db():
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-vector_db = get_db()
+    db = Chroma(
+        persist_directory="okul_asistani_gpt_db",
+        embedding_function=embeddings
+    )
+    return db
 
-# 🧠 HAFIZA
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+vector_db = load_vector_db()
 
-# 💬 ESKİ MESAJLAR
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+# 🤖 SORGULAMA
+def okul_asistani_sorgula(soru):
+    docs = vector_db.similarity_search(soru, k=5)
 
-# ✍️ KULLANICI GİRİŞİ
-soru = st.chat_input("Sorunuzu yazın")
+    baglam = "\n\n".join([doc.page_content for doc in docs])
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": "Sen MEB yönetmeliği uzmanısın. Cevabını sadece verilen bağlama göre ver."
+            },
+            {
+                "role": "user",
+                "content": f"Bağlam:\n{baglam}\n\nSoru: {soru}"
+            }
+        ],
+        model="llama3-8b-8192",
+        temperature=0,
+    )
+
+    return chat_completion.choices[0].message.content
+
+# ✍️ INPUT
+soru = st.text_input("Sormak istediğiniz konuyu yazın:")
 
 if soru:
-    # kullanıcı mesajı
-    st.session_state.messages.append({"role": "user", "content": soru})
-
-    with st.chat_message("user"):
-        st.write(soru)
-
-    # AI cevabı
-    with st.chat_message("assistant"):
-        with st.spinner("Cevap hazırlanıyor..."):
-            cevap, kaynaklar = okul_asistani_sorgula(soru, vector_db)
-
+    with st.spinner("Yanıt hazırlanıyor..."):
+        cevap = okul_asistani_sorgula(soru)
         st.write(cevap)
-
-        # 📚 kaynaklar
-        with st.expander("📚 Kaynaklar"):
-            for k in kaynaklar:
-                st.markdown(f"- {k}...")
-
-    # hafızaya ekle
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": cevap
-    })
