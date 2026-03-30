@@ -70,7 +70,7 @@ Kurallar:
 
     chat_completion = client.chat.completions.create(
         messages=messages,
-        model="gemma2-9b-it",
+        model="openai/gpt-oss-120b",
         temperature=0,
         max_tokens=500
     )
