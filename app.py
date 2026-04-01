@@ -4,7 +4,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings 
 from dotenv import load_dotenv
 import os
-import time  # ⏳ Bekleme süresi için eklendi
 
 # 🔐 API ve Çevre Değişkenleri
 load_dotenv()
@@ -76,10 +75,14 @@ def sorgula(soru):
     messages = [{
         "role": "system", 
         "content": """Sen uzman bir MEB Mevzuat Asistanısın. 
-        KURALLAR: Ders süresi (40/60 dk), Kayıt yaş sınırı (18), Evlilik (Açık Lise), 
-        Devamsızlık (10/30 gün), Başarı puanı (50), Sorumluluk (max 3), Sınıf tekrarı (6+ zayıf),
-        Beceri sınavı (%80+%20), Nakil dönemi (Aralık/Mayıs hariç), Disiplin (Kopya/Sigara=Kınama).
-        Talimat: Teknik referans vermeden doğrudan cevap ver."""
+        [GÜNCEL KURALLAR]:
+        - Ders Süresi: Okul 40dk, İşletme 60dk.
+        - Yaş & Evlilik: Kayıt için <18 yaş. Evli olanlar Açık Lise'ye.
+        - Devamsızlık: Özürsüz 10, Toplam 30 gün (Ağır hastalıkta 60).
+        - Başarı: Geçme 50 puan. Max 3 sorumlu geçiş. 6+ zayıf tekrar.
+        - Disiplin: Kopya/Sigara = Kınama.
+        - Nakil: Aralık/Mayıs hariç her ayın ilk iş günü.
+        Talimat: Teknik referans vermeden, samimi ama resmi bir uzman diliyle cevap ver."""
     }]
     
     for msg in st.session_state.conversation[-4:]:
@@ -106,12 +109,12 @@ c1, c2, c3 = st.columns(3)
 with c1:
     st.markdown('<div class="category-box"><div class="category-title">📜 Kayıt & Disiplin</div><div class="category-item">• Evlilik durumu ne olur?<br>• Yaş sınırı kaç?</div></div>', unsafe_allow_html=True)
 with c2:
-    st.markdown('<div class="category-box"><div class="category-title">⏳ Devamsızlık</div><div class="category-item">• 30 gün kuralı nedir?<br>• Geç gelme durumu?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="category-box"><div class="category-title">⏳ Devamsızlık</div><div class="category-item">• 30 gün kuralı nedir?<br>• Özürsüz kaç gün?</div></div>', unsafe_allow_html=True)
 with c3:
     st.markdown('<div class="category-box"><div class="category-title">🎓 Başarı & Nakil</div><div class="category-item">• Kaç zayıfla kalınır?<br>• Nakil dönemi ne zaman?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Sohbet Geçmişini Görüntüle
+# Sohbet Geçmişi
 for msg in st.session_state.conversation:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -119,11 +122,10 @@ for msg in st.session_state.conversation:
 # Giriş Alanı
 if prompt := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
     
-    # 🛡️ GÜVENLİK FİLTRESİ (Yasaklı mesajı hiç kaydetmez)
     if filtre_kontrol(prompt):
-        st.error("⚠️ Mesajınız topluluk kurallarına aykırı içerik barındırdığı için silinmiş ve engellenmiştir.")
+        # İhlal varsa mesajı gösterme ve kaydetme
+        st.error("⚠️ Mesajınız topluluk kurallarına aykırı içerik barındırdığı için engellenmiştir.")
     else:
-        # Mesajı geçmişe ekle
         st.session_state.conversation.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -133,9 +135,3 @@ if prompt := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
                 cevap = sorgula(prompt)
                 st.markdown(cevap)
                 st.session_state.conversation.append({"role": "assistant", "content": cevap})
-                
-                # ⏳ OTOMATİK SİLME (Cevaptan sonra her şeyi temizler)
-                st.caption("🔒 Güvenlik için sohbet geçmişi 5 saniye içinde temizlenecektir.")
-                time.sleep(5)
-                st.session_state.conversation = []
-                st.rerun()
