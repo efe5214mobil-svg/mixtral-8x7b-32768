@@ -59,7 +59,7 @@ def load_vector_db():
 
 vector_db = load_vector_db()
 
-# 🛡️ Güvenlik Filtresi (Küfür, Argo, Din, Dil, Irk, Siyaset)
+# 🛡️ Güvenlik Filtresi
 def filtre_kontrol(metin):
     yasakli = ["siyaset", "parti", "din", "ırk", "mezhep", "küfür", "argo", "hakaret", "aptal", "salak"]
     metin_low = metin.lower()
@@ -71,24 +71,20 @@ if "conversation" not in st.session_state:
 # 🤖 Sorgulama Fonksiyonu
 def sorgula(soru):
     if filtre_kontrol(soru):
-        return "⚠️ Uyarı: Mesajınız topluluk kurallarına (küfür, argo, siyaset, din, ırk) aykırı içerik barındırıyor. Lütfen sadece MEB yönetmeliğiyle ilgili sorular sorun. [TABLO_YOK]", []
+        return "⚠️ Uyarı: Mesajınız topluluk kurallarına aykırı içerik barındırıyor. Lütfen sadece MEB yönetmeliğiyle ilgili sorular sorun. [TABLO_YOK]", []
 
+    # Benzerlik araması
     docs = vector_db.similarity_search(soru, k=3)
     baglam = "\n\n".join([doc.page_content for doc in docs])
     
     messages = [{
         "role": "system", 
         "content": """Sen MEB yönetmelik uzmanısın. 
-        - Selamlaşmalara (merhaba, selam vb.) kısa ve nazik cevap ver.
-        - Mevzuat dışı sorularda veya selamlaşmalarda cevabın sonuna [TABLO_YOK] ekle.
-        
-        [PDF VERİLERİ]:
-        - Devamsızlık: Özürsüz 10, Toplam 30 gün.
-        - Geçme Notu: 50 puan.
-        - Sınıf Geçme: Max 3 ders sorumluluk, 6+ zayıf tekrar.
-        - Ödül: Teşekkür 70+, Takdir 85+.
-        - Disiplin: Kopya/Sigara 'Kınama' cezasıdır.
-        - Kayıt: Evli öğrencilerin kaydı yapılamaz."""
+        - Cevaplarında asla 'Sabit PDF verileri' veya 'Bağlam' gibi teknik başlıklar kullanma. 
+        - Direkt olarak soruyu yanıtla.
+        - Selamlaşmalara nazikçe karşılık ver ve sonuna [TABLO_YOK] ekle.
+        - Eğer soru mevzuatla ilgili değilse cevabın sonuna [TABLO_YOK] ekle.
+        - Bilgi verirken şu kuralları temel al: Devamsızlık (10/30 gün), Geçme notu (50), Sorumlu geçme (max 3 ders), Takdir (85+)."""
     }]
     
     for msg in st.session_state.conversation[-4:]:
@@ -99,7 +95,7 @@ def sorgula(soru):
     completion = client.chat.completions.create(
         messages=messages, 
         model="llama-3.3-70b-versatile", 
-        temperature=0.2
+        temperature=0.1
     )
     return completion.choices[0].message.content, docs
 
@@ -111,7 +107,7 @@ st.markdown('<div class="floating-button-container">', unsafe_allow_html=True)
 st.link_button("📅 Sınıf Programı", "https://sinifprogrami.streamlit.app/")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 💡 Öneri Kartları (HER ZAMAN ÜSTTE)
+# 💡 Öneri Kartları
 st.markdown("### 💡 Hızlı Öneriler")
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -142,6 +138,7 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
             
             st.markdown(temiz_cevap)
             
+            # Referans Tablosu (Sadece mevzuat uyumu varsa)
             if kaynaklar and not tablo_gizle:
                 st.markdown("📑 **Referans Maddeler**")
                 ref_data = []
