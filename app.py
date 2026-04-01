@@ -5,6 +5,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 import os
 import re
+import time # ⏳ Zamanlama için eklendi
 
 # 🔐 API ve Çevre Değişkenleri
 load_dotenv()
@@ -61,20 +62,15 @@ vektor_tabani = veri_tabanini_yukle()
 
 # 🛡️ GELİŞMİŞ GÜVENLİK SÜZGECİ
 def suzgec_kontrolu(metin):
-    # Benzer karakterleri harfe dönüştür
     karakter_haritasi = {
         '1': 'i', '0': 'o', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', 
         '@': 'a', '$': 's', '€': 'e', '!': 'i'
     }
     
-    # 1. Metni küçült
     temiz_metin = metin.lower()
-    
-    # 2. Benzer karakterleri değiştir
     for eski, yeni in karakter_haritasi.items():
         temiz_metin = temiz_metin.replace(eski, yeni)
     
-    # 3. Harf ve rakam dışındaki her şeyi sil (boşluk, nokta, sembol)
     temiz_metin = re.sub(r'[^a-z0-9]', '', temiz_metin)
     
     yasakli_kelimeler = [
@@ -131,7 +127,7 @@ with sutun3:
     st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Kaç zayıfla kalınır?<br>• Nakil dönemi ne zaman?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Geçmişi Ekrana Yaz
+# Geçmişi Yazdır
 for ileti in st.session_state.sohbet_gecmisi:
     with st.chat_message(ileti["role"]):
         st.markdown(ileti["content"])
@@ -140,7 +136,12 @@ for ileti in st.session_state.sohbet_gecmisi:
 if girdi := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
     
     if suzgec_kontrolu(girdi):
-        st.error("⚠️ Uyarı: İletiniz topluluk kurallarına aykırı veya uygunsuz içerik barındırdığı için engellenmiştir.")
+        # 🛡️ UYARI VE OTOMATİK SİLME
+        uyari_alani = st.empty()
+        uyari_alani.error("⚠️ Uyarı: İletiniz topluluk kurallarına aykırı veya uygunsuz içerik barındırdığı için engellenmiştir.")
+        time.sleep(3) # 3 saniye bekle
+        uyari_alani.empty() # Uyarıyı sil
+        st.rerun() # Sayfayı yenile
     else:
         st.session_state.sohbet_gecmisi.append({"role": "user", "content": girdi})
         with st.chat_message("user"):
