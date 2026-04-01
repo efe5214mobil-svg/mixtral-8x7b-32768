@@ -62,19 +62,33 @@ def suzgec_kontrolu(metin):
     yasakli_kelimeler = ["oc", "aq", "amk", "amq", "pic", "got", "sik", "amc", "yarrak", "fassak", "tassak", "dassak", "orospu", "fahise", "bebegim", "askim", "canim", "yavrum", "balim", "guzelim", "bitanem", "sevgilim", "cinsiyetin", "kadinmisin", "erkekmisin", "nerelisin", "kacyasindasin", "sevgilinvarmi", "gay", "lezbiyen", "lgbt", "travesti", "seks", "sex", "porno", "vajina", "penis", "meme", "siyaset", "parti", "teror", "serefsiz", "gerizekali"]
     return any(yasakli in temiz_metin for yasakli in yasakli_kelimeler)
 
-# 🤖 Yanıt Oluşturucu
+# 🤖 Yanıt Oluşturucu (Rate Limit Korumalı)
 def cevap_olustur(soru):
-    try:
-        ilgili_belgeler = vektor_tabani.similarity_search(soru, k=5)
-        kaynak_metin = "\n\n".join([belge.page_content for belge in ilgili_belgeler])
-        iletiler = [
-            {"role": "system", "content": "Sen uzman bir MEB Mevzuat Asistanısın. Sadece MEB yönetmelikleri hakkında kısa ve öz bilgi ver."},
-            {"role": "user", "content": f"KAYNAK:\n{kaynak_metin}\n\nSORU: {soru}"}
-        ]
-        yanit = istemci.chat.completions.create(messages=iletiler, model="llama-3.3-70b-versatile", temperature=0.1)
-        return yanit.choices[0].message.content
-    except Exception:
-        return "⚠️ Şu an yoğunluk var, lütfen az sonra tekrar sorun."
+    deneme_sayisi = 3
+    for i in range(deneme_sayisi):
+        try:
+            ilgili_belgeler = vektor_tabani.similarity_search(soru, k=5)
+            kaynak_metin = "\n\n".join([belge.page_content for belge in ilgili_belgeler])
+            iletiler = [
+                {"role": "system", "content": "Sen uzman bir MEB Mevzuat Asistanısın. Sadece MEB yönetmelikleri hakkında kısa ve öz bilgi ver."},
+                {"role": "user", "content": f"KAYNAK:\n{kaynak_metin}\n\nSORU: {soru}"}
+            ]
+            yanit = istemci.chat.completions.create(
+                messages=iletiler, 
+                model="llama-3.3-70b-versatile", 
+                temperature=0.1
+            )
+            return yanit.choices[0].message.content
+            
+        except Exception as e:
+            hata_mesaji = str(e).lower()
+            if "rate_limit" in hata_mesaji or "429" in hata_mesaji:
+                if i < deneme_sayisi - 1:
+                    time.sleep(2) # Hata alınca 2 saniye bekle ve tekrar dene
+                    continue
+                else:
+                    return "⚠️ Çok fazla istek gönderildi. Lütfen 30 saniye bekleyip tekrar deneyin."
+            return f"❌ Bir hata oluştu: {str(e)[:50]}..."
 
 # --- SESSION STATE ---
 if "mesajlar" not in st.session_state:
@@ -83,7 +97,6 @@ if "son_islem_zamani" not in st.session_state:
     st.session_state.son_islem_zamani = time.time()
 
 # --- OTOMATİK TEMİZLİK KONTROLÜ ---
-# Eğer son işlemden bu yana 15 saniye geçtiyse geçmişi temizle
 if time.time() - st.session_state.son_islem_zamani > 15:
     st.session_state.mesajlar = []
 
@@ -108,7 +121,6 @@ for m in st.session_state.mesajlar:
 
 # Giriş Alanı
 if girdi := st.chat_input("Sorunuzu buraya yazın..."):
-    # Zamanı güncelle (her yeni soruda 15 saniye sıfırlanır)
     st.session_state.son_islem_zamani = time.time()
     
     if suzgec_kontrolu(girdi):
@@ -124,5 +136,4 @@ if girdi := st.chat_input("Sorunuzu buraya yazın..."):
                 st.markdown(cevap)
                 st.session_state.mesajlar.append({"role": "assistant", "content": cevap})
         
-        # Kullanıcıyı bekletmeden sayfayı yenilemek için küçük bir ipucu
-        st.caption("🛡️ Bu sohbet 15 saniye işlem yapılmazsa otomatik olarak silinecektir.")
+        st.caption("🛡️ Sohbet 15 saniye içinde otomatik temizlenecektir. Yeni soru sorabilirsiniz.")
