@@ -23,7 +23,7 @@ def okul_asistani_sorgula(soru, vector_db):
                 "content": f"Bağlam:\n{baglam}\n\nSoru: {soru}"
             }
         ],
-        model="openai/gpt-oss-120b", # Model ismi güncellendi
+        model="gemma2-9b-it", # Model ismi güncellendi
         temperature=0,
     )
     
