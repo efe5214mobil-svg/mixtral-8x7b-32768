@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 import os
 import re
 import base64
-import pandas as pd
-from PIL import Image
 
 # 🎨 Sayfa Ayarları ve Tema
 st.set_page_config(page_title="MEB Yönetmelik Asistanı", layout="wide")
@@ -68,32 +66,6 @@ def gorsel_mevzuat_ozeti(docs):
     st.markdown("#### 📋 Mevzuat Analiz Çizelgesi")
     st.table(df)
 
-# --- SIDEBAR & SINIFLAR (12->9 ve A->Z) ---
-st.sidebar.header("📌 Sınıflar")
-dersprogram_klasor = "dersprogram_dosyasi"
-dosya_haritasi = {}
-
-if os.path.exists(dersprogram_klasor):
-    dosyalar = [f for f in os.listdir(dersprogram_klasor) if f.lower().endswith(".png")]
-    for d in dosyalar:
-        isim_ham = d.lower().replace(".png", "").replace(" ", "").replace("-", "").replace(".", "")
-        match = re.search(r"(\d+)([a-z]+)", isim_ham)
-        if match:
-            sayi = match.group(1)
-            harf = match.group(2).upper()
-            gosterim_adi = f"{sayi} - {harf}"
-            dosya_haritasi[gosterim_adi] = os.path.join(dersprogram_klasor, d)
-
-    def sirala_mantigi(x):
-        parcalar = re.search(r"(\d+) - ([A-Z]+)", x)
-        if parcalar:
-            return (-int(parcalar.group(1)), parcalar.group(2))
-        return (0, x)
-
-    sirali_isimler = sorted(dosya_haritasi.keys(), key=sirala_mantigi)
-    if sirali_isimler:
-        secilen_sinif = st.sidebar.selectbox("Sınıf Seçin:", sirali_isimler)
-        st.sidebar.image(Image.open(dosya_haritasi[secilen_sinif]), use_container_width=True)
 
 # 🛡️ GÜVENLİK FİLTRESİ (Sadece Küfür/Hakaret Engelli, Mevzuat Kelimeleri Serbest)
 def uygunsuz_mu(soru):
