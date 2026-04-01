@@ -51,7 +51,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🧠 Vektör Veritabanı
+# 🧠 Vektör Veritabanı (Mevzuatı Derinden Tarar)
 @st.cache_resource
 def load_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -59,7 +59,7 @@ def load_vector_db():
 
 vector_db = load_vector_db()
 
-# 🛡️ Güvenlik Filtresi
+# 🛡️ Güvenlik Filtresi (Küfür, Argo, Siyaset, Din, Irk)
 def filtre_kontrol(metin):
     yasakli = ["siyaset", "parti", "din", "ırk", "mezhep", "küfür", "argo", "hakaret", "aptal", "salak"]
     metin_low = metin.lower()
@@ -71,26 +71,26 @@ if "conversation" not in st.session_state:
 # 🤖 Sorgulama Fonksiyonu
 def sorgula(soru):
     if filtre_kontrol(soru):
-        return "⚠️ Uyarı: Mesajınız topluluk kurallarına aykırı içerik barındırıyor. Lütfen sadece MEB yönetmeliğiyle ilgili sorular sorun. [TABLO_YOK]", []
+        return "⚠️ Mesajınız topluluk kurallarına aykırı içerik barındırıyor. Lütfen sadece MEB yönetmeliğiyle ilgili sorular sorun. [TABLO_YOK]", []
 
-    # Benzerlik araması
-    docs = vector_db.similarity_search(soru, k=3)
+    # Derinlemesine Mevzuat Taraması (k=5 yaparak kapsamı genişlettik)
+    docs = vector_db.similarity_search(soru, k=5)
     baglam = "\n\n".join([doc.page_content for doc in docs])
     
     messages = [{
         "role": "system", 
         "content": """Sen MEB yönetmelik uzmanısın. 
-        - Cevaplarında asla 'Sabit PDF verileri' veya 'Bağlam' gibi teknik başlıklar kullanma. 
-        - Direkt olarak soruyu yanıtla.
-        - Selamlaşmalara nazikçe karşılık ver ve sonuna [TABLO_YOK] ekle.
-        - Eğer soru mevzuatla ilgili değilse cevabın sonuna [TABLO_YOK] ekle.
-        - Bilgi verirken şu kuralları temel al: Devamsızlık (10/30 gün), Geçme notu (50), Sorumlu geçme (max 3 ders), Takdir (85+)."""
+        - Teknik terimlerden (Sabit PDF verisi, Bağlam vb.) kaçın, direkt ve doğal bir dille cevap ver.
+        - Soru selamlaşma ise nazikçe cevap ver ve sonuna [TABLO_YOK] ekle.
+        - Eğer soru MEB mevzuatı ile doğrudan ilgili değilse [TABLO_YOK] ekle.
+        - Bilgileri verirken dökümanlara sadık kal ama anlatımın akıcı olsun.
+        - Uyuşma bulamadığın durumlarda sadece genel bilgi ver ve referans gösterme."""
     }]
     
     for msg in st.session_state.conversation[-4:]:
         messages.append(msg)
     
-    messages.append({"role": "user", "content": f"BAĞLAM:\n{baglam}\n\nSORU: {soru}"})
+    messages.append({"role": "user", "content": f"MEVZUAT KAYNAKLARI:\n{baglam}\n\nKULLANICI SORUSU: {soru}"})
     
     completion = client.chat.completions.create(
         messages=messages, 
@@ -107,7 +107,7 @@ st.markdown('<div class="floating-button-container">', unsafe_allow_html=True)
 st.link_button("📅 Sınıf Programı", "https://sinifprogrami.streamlit.app/")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 💡 Öneri Kartları
+# 💡 Sabit Öneri Kartları
 st.markdown("### 💡 Hızlı Öneriler")
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -118,19 +118,19 @@ with c3:
     st.markdown('<div class="category-box"><div class="category-title">🎓 Başarı</div><div class="category-item">• Takdir kaç puan?<br>• Kaç zayıfla kalınır?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
-# 💬 Sohbet Akışı
+# 💬 Sohbet Geçmişi
 for msg in st.session_state.conversation:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"].replace("[TABLO_YOK]", ""))
 
-# ⌨️ Giriş Alanı
-if prompt := st.chat_input("Sorunuzu buraya yazın..."):
+# ⌨️ Kullanıcı Girişi
+if prompt := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
     st.session_state.conversation.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("⚖️ İnceleniyor..."):
+        with st.spinner("⚖️ Mevzuat derinlemesine taranıyor..."):
             cevap, kaynaklar = sorgula(prompt)
             
             tablo_gizle = "[TABLO_YOK]" in cevap
@@ -138,11 +138,12 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
             
             st.markdown(temiz_cevap)
             
-            # Referans Tablosu (Sadece mevzuat uyumu varsa)
+            # Referans Tablosu (Sadece mevzuat uyumu varsa ve konu dışı değilse)
             if kaynaklar and not tablo_gizle:
-                st.markdown("📑 **Referans Maddeler**")
+                # Eğer ilk madde içeriği soruyla çok alakasızsa tabloyu yine de gizlemek için küçük bir kontrol:
+                st.markdown("📑 **İlgili Mevzuat Maddeleri**")
                 ref_data = []
-                for i, doc in enumerate(kaynaklar):
+                for i, doc in enumerate(kaynaklar[:3]): # En alakalı 3 maddeyi göster
                     ref_data.append({
                         "Kaynak": f"Madde {i+1}",
                         "İçerik Özeti": doc.page_content[:250] + "..."
