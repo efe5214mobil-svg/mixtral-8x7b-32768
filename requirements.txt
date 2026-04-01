@@ -2,6 +2,8 @@ streamlit
 groq
 langchain
 langchain-community
-chromadb
+langchain-huggingface
+chromadb>=0.4.15
 sentence-transformers
 python-dotenv
+protobuf==3.20.3
