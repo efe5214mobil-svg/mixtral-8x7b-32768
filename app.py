@@ -20,7 +20,7 @@ st.markdown("""
     .stApp { font-family: 'Inter', sans-serif; }
     .main-title { font-size: 2.2rem; font-weight: 800; text-align: center; margin-bottom: 1.5rem; }
     
-    /* 🚀 Sınıf Programı Butonu (Yazı alanının sağ üstünde yüzer) */
+    /* 🚀 Sınıf Programı Butonu (Yüzen) */
     .floating-btn-container {
         position: fixed;
         bottom: 85px; 
@@ -39,7 +39,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
         transition: 0.3s ease !important;
     }
-    .stLinkButton a:hover { background-color: #E67E22 !important; transform: scale(1.05); }
 
     /* Rehber Kartları */
     .category-box {
@@ -48,10 +47,9 @@ st.markdown("""
         padding: 18px;
         border-top: 4px solid #FF4B4B;
         height: 100%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    .category-title { font-weight: bold; color: #FF4B4B; margin-bottom: 10px; font-size: 1.15rem; border-bottom: 1px solid rgba(255, 75, 75, 0.1); padding-bottom: 5px; }
-    .category-item { font-size: 0.88rem; margin-bottom: 6px; color: #444; line-height: 1.4; }
+    .category-title { font-weight: bold; color: #FF4B4B; margin-bottom: 10px; font-size: 1.15rem; }
+    .category-item { font-size: 0.88rem; margin-bottom: 6px; color: #444; }
     
     [data-testid="stChatMessage"] { border-radius: 20px; border: 1px solid rgba(128, 128, 128, 0.15); }
 </style>
@@ -68,17 +66,10 @@ vector_db = load_vector_db()
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
-# ❌ Güvenlik ve Saçma Soru Filtresi
-def filtrele(soru):
+# ❌ Güvenlik Filtresi (Kullanıcı girişini denetler)
+def uygunsuz_mu(soru):
     yasakli = ["küfür", "argo", "siyaset", "parti", "din", "ırk", "hakaret", "aptal", "salak"]
-    mevzuat_disi = ["yemek tarifi", "oyun hilesi", "şarkı sözü", "nasılsın", "kimsin"] # Konu dışı filtreleri
-    soru_lower = soru.lower()
-    
-    if any(k in soru_lower for k in yasakli):
-        return "⚠️ Uyarı: Hakaret veya topluluk kurallarına aykırı içerik tespit edildi. Lütfen sadece mevzuat odaklı sorular sorunuz."
-    if len(soru) < 5:
-        return "⚠️ Lütfen daha anlaşılır ve detaylı bir soru sorunuz."
-    return None
+    return any(k in soru.lower() for k in yasakli)
 
 # 🤖 Sorgulama Fonksiyonu (Llama 3.3 70B)
 def sorgula(soru):
@@ -95,8 +86,8 @@ def sorgula(soru):
         - Ödül: Teşekkür 70+, Takdir 85+.
         - Disiplin: Kopya/Sigara = Kınama.
         - Kayıt: Evli kayıt yapılamaz.
-        
-        Eğer soru saçmaysa veya mevzuatla ilgisizse, kibarca 'Bu konu MEB yönetmeliği kapsamı dışındadır' de."""
+
+        ÖNEMLİ: Eğer soru yönetmelikle ilgili değilse veya saçmaysa, cevabına mutlaka 'KAPSAM_DISI' kelimesini ekle."""
     }]
 
     for msg in st.session_state.conversation[-4:]:
@@ -129,35 +120,41 @@ if not st.session_state.conversation:
 # 💬 Sohbet Akışı
 for msg in st.session_state.conversation:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        st.markdown(msg["content"].replace("KAPSAM_DISI", "")) # Etiketi kullanıcıya gösterme
 
 # ⌨️ Giriş Alanı
-if prompt := st.chat_input("Yönetmelik hakkında sorunuzu buraya yazın..."):
-    # Filtre kontrolü
-    hata = filtrele(prompt)
+if prompt := st.chat_input("Sorunuzu buraya yazın..."):
     
-    if hata:
+    # 1. Filtre Kontrolü
+    if uygunsuz_mu(prompt):
+        cevap = "⚠️ Uyarı: Lütfen topluluk kurallarına uygun ve sadece MEB yönetmeliği ile ilgili sorular sorunuz."
         st.session_state.conversation.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
-        with st.chat_message("assistant"): st.markdown(hata)
-        st.session_state.conversation.append({"role": "assistant", "content": hata})
+        with st.chat_message("assistant"): st.markdown(cevap)
+        st.session_state.conversation.append({"role": "assistant", "content": cevap})
+    
     else:
         st.session_state.conversation.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
+        
         with st.chat_message("assistant"):
-            with st.spinner("⚖️ İnceleniyor..."):
-                cevap, kaynaklar = sorgula(prompt)
-                st.markdown(cevap)
+            with st.spinner("⚖️ Mevzuat inceleniyor..."):
+                raw_cevap, kaynaklar = sorgula(prompt)
                 
-                # 📊 Tablo Mantığı: Eğer cevap "MEB kapsamı dışında" değilse tabloyu ver
-                mevzuat_disi_mi = "kapsamı dışındadır" in cevap.lower() or "ilgili bir bilgi bulunmuyor" in cevap.lower()
+                # 'KAPSAM_DISI' etiketini temizle ama kontrol için kullan
+                is_out_of_scope = "KAPSAM_DISI" in raw_cevap
+                clean_cevap = raw_cevap.replace("KAPSAM_DISI", "").strip()
                 
-                if kaynaklar and not mevzuat_disi_mi:
+                st.markdown(clean_cevap)
+                
+                # 📊 TABLO GİZLEME MANTIĞI: Sadece mevzuat içindeyse tabloyu göster
+                if kaynaklar and not is_out_of_scope:
+                    st.markdown("---")
                     st.markdown("📑 **Yönetmelik Referans Tablosu**")
                     ref_df = pd.DataFrame({
                         "Kaynak": [f"Madde {i+1}" for i in range(len(kaynaklar))],
-                        "İçerik": [doc.page_content[:300] + "..." for doc in kaynaklar]
+                        "İçerik": [doc.page_content[:250] + "..." for doc in kaynaklar]
                     })
                     st.table(ref_df)
                 
-                st.session_state.conversation.append({"role": "assistant", "content": cevap})
+                st.session_state.conversation.append({"role": "assistant", "content": clean_cevap})
