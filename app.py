@@ -15,7 +15,7 @@ istemci = Groq(api_key=api_anahtari)
 # 🎨 Sayfa Yapılandırması
 st.set_page_config(page_title="MEB Mevzuat Asistanı", page_icon="🏛️", layout="centered")
 
-# 🖌️ Modern Görünüm (CSS)
+# 🖌️ CSS (Modern Görünüm)
 st.markdown("""
 <style>
     .stApp { font-family: 'Inter', sans-serif; }
@@ -44,7 +44,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🧠 Veri Tabanı Yükleme
+# 🧠 Veri Tabanı
 @st.cache_resource
 def veri_tabanini_yukle():
     gomme_modeli = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -52,7 +52,7 @@ def veri_tabanini_yukle():
 
 vektor_tabani = veri_tabanini_yukle()
 
-# 🛡️ GÜVENLİK SÜZGECİ
+# 🛡️ Güvenlik Süzgeci
 def suzgec_kontrolu(metin):
     karakter_haritasi = {'1': 'i', '0': 'o', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '€': 'e', '!': 'i'}
     temiz_metin = metin.lower()
@@ -62,33 +62,34 @@ def suzgec_kontrolu(metin):
     yasakli_kelimeler = ["oc", "aq", "amk", "amq", "pic", "got", "sik", "amc", "yarrak", "fassak", "tassak", "dassak", "orospu", "fahise", "bebegim", "askim", "canim", "yavrum", "balim", "guzelim", "bitanem", "sevgilim", "cinsiyetin", "kadinmisin", "erkekmisin", "nerelisin", "kacyasindasin", "sevgilinvarmi", "gay", "lezbiyen", "lgbt", "travesti", "seks", "sex", "porno", "vajina", "penis", "meme", "siyaset", "parti", "teror", "serefsiz", "gerizekali"]
     return any(yasakli in temiz_metin for yasakli in yasakli_kelimeler)
 
-if "sohbet_gecmisi" not in st.session_state:
-    st.session_state.sohbet_gecmisi = []
-
 # 🤖 Yanıt Oluşturucu
 def cevap_olustur(soru):
     try:
         ilgili_belgeler = vektor_tabani.similarity_search(soru, k=5)
         kaynak_metin = "\n\n".join([belge.page_content for belge in ilgili_belgeler])
-        
-        iletiler = [{"role": "system", "content": "Sen uzman bir MEB Mevzuat Asistanısın. Sadece MEB yönetmelikleri hakkında bilgi ver. Kişisel sorulara cevap verme. Teknik tablo kullanma."}]
-        for ileti in st.session_state.sohbet_gecmisi[-4:]:
-            iletiler.append(ileti)
-        iletiler.append({"role": "user", "content": f"KAYNAK VERİLER:\n{kaynak_metin}\n\nKULLANICI SORUSU: {soru}"})
-        
-        yanit = istemci.chat.completions.create(
-            messages=iletiler, 
-            model="llama-3.3-70b-versatile", 
-            temperature=0.1
-        )
+        iletiler = [
+            {"role": "system", "content": "Sen uzman bir MEB Mevzuat Asistanısın. Sadece MEB yönetmelikleri hakkında kısa ve öz bilgi ver."},
+            {"role": "user", "content": f"KAYNAK:\n{kaynak_metin}\n\nSORU: {soru}"}
+        ]
+        yanit = istemci.chat.completions.create(messages=iletiler, model="llama-3.3-70b-versatile", temperature=0.1)
         return yanit.choices[0].message.content
-    except Exception as e:
-        if "rate_limit_exceeded" in str(e).lower():
-            return "⚠️ Şu an çok fazla istek var lütfen bekleyiniz."
-        return "❌ Bir hata oluştu, lütfen tekrar deneyin."
+    except Exception:
+        return "⚠️ Şu an yoğunluk var, lütfen az sonra tekrar sorun."
+
+# --- SESSION STATE ---
+if "mesajlar" not in st.session_state:
+    st.session_state.mesajlar = []
+if "son_islem_zamani" not in st.session_state:
+    st.session_state.son_islem_zamani = time.time()
+
+# --- OTOMATİK TEMİZLİK KONTROLÜ ---
+# Eğer son işlemden bu yana 15 saniye geçtiyse geçmişi temizle
+if time.time() - st.session_state.son_islem_zamani > 15:
+    st.session_state.mesajlar = []
 
 # --- ARAYÜZ ---
 st.markdown("<div class='ana-baslik'>🏛️ MEB Yönetmelik Asistanı</div>", unsafe_allow_html=True)
+
 st.markdown('<div class="yuzen-buton-alani">', unsafe_allow_html=True)
 st.link_button("📅 Sınıf Programı", "https://sinifprogrami.streamlit.app/")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -100,19 +101,20 @@ with s2: st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi"
 with s3: st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Sınıf tekrarı?<br>• Beceri sınavı?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
-for ileti in st.session_state.sohbet_gecmisi:
-    with st.chat_message(ileti["role"]):
-        st.markdown(ileti["content"])
+# Mesajları Görüntüle
+for m in st.session_state.mesajlar:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-if girdi := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
+# Giriş Alanı
+if girdi := st.chat_input("Sorunuzu buraya yazın..."):
+    # Zamanı güncelle (her yeni soruda 15 saniye sıfırlanır)
+    st.session_state.son_islem_zamani = time.time()
+    
     if suzgec_kontrolu(girdi):
-        u = st.empty()
-        u.error("⚠️ Uygunsuz içerik algılandı.")
-        time.sleep(2)
-        u.empty()
-        st.rerun()
+        st.error("⚠️ Uygunsuz içerik!")
     else:
-        st.session_state.sohbet_gecmisi.append({"role": "user", "content": girdi})
+        st.session_state.mesajlar.append({"role": "user", "content": girdi})
         with st.chat_message("user"):
             st.markdown(girdi)
 
@@ -120,14 +122,7 @@ if girdi := st.chat_input("Yönetmelik hakkında bir soru sorun..."):
             with st.spinner("⚖️ İnceleniyor..."):
                 cevap = cevap_olustur(girdi)
                 st.markdown(cevap)
-                st.session_state.sohbet_gecmisi.append({"role": "assistant", "content": cevap})
+                st.session_state.mesajlar.append({"role": "assistant", "content": cevap})
         
-        # ⏳ 15 SANİYE BEKLEME VE TEMİZLİK
-        sayac = st.empty()
-        for i in range(15, 0, -1):
-            sayac.caption(f"🛡️ Güvenlik gereği sohbet {i} saniye içinde temizlenecektir...")
-            time.sleep(1)
-        
-        st.session_state.sohbet_gecmisi = []
-        sayac.empty()
-        st.rerun()
+        # Kullanıcıyı bekletmeden sayfayı yenilemek için küçük bir ipucu
+        st.caption("🛡️ Bu sohbet 15 saniye işlem yapılmazsa otomatik olarak silinecektir.")
