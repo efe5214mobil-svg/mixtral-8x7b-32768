@@ -39,6 +39,24 @@ st.markdown("""
         height: 100%;
         margin-bottom: 10px;
     }
+
+        .kategori-kutusu2 {
+        background-color: rgba(128,128,128, 0.05);
+        border-radius: 15px;
+        padding: 18px;
+        border-top: 4px solid #0974e6;
+        height: 100%;
+        margin-bottom: 10px;
+    }
+
+        .kategori-kutusu3 {
+        background-color: rgba(128,128,128, 0.05);
+        border-radius: 15px;
+        padding: 18px;
+        border-top: 4px solid #05f250;
+        height: 100%;
+        margin-bottom: 10px;
+    }
     .kategori-basligi { font-weight: bold; color: #FF4B4B; margin-bottom: 10px; font-size: 1.15rem; }
     .kategori-basligi2 { font-weight: bold; color: #0974e6; margin-bottom: 10px; font-size: 1.15rem; }
     .kategori-basligi3 { font-weight: bold; color: #05f250; margin-bottom: 10px; font-size: 1.15rem; }
@@ -140,9 +158,9 @@ s1, s2, s3 = st.columns(3)
 with s1:
     st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi">📜 Kayıt & Disiplin</div><div class="kategori-maddesi">• Evlilik durumu?<br>• Kopya cezası?</div></div>', unsafe_allow_html=True)
 with s2:
-    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi">• 10/30 gün kuralı?<br>• Geç gelme sınırı?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kategori-kutusu2"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi">• 10/30 gün kuralı?<br>• Geç gelme sınırı?</div></div>', unsafe_allow_html=True)
 with s3:
-    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi3">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Kaç zayıfla kalınır?<br>• Nakil dönemi?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kategori-kutusu3"><div class="kategori-basligi3">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Kaç zayıfla kalınır?<br>• Nakil dönemi?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
 for ileti in st.session_state.sohbet_gecmisi:
