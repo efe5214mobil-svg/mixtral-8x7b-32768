@@ -40,26 +40,10 @@ st.markdown("""
     }
 
     .kategori-kutusu {
-        background-color: rgba(128, 128, 128, 0.05);
+        background-color: rgba(255,255,255,255);
         border-radius: 15px;
         padding: 18px;
         border-top: 4px solid #FF4B4B;
-        height: 100%;
-        margin-bottom: 10px;
-    }
-    .kategori-kutusu2 {
-        background-color: rgba(128, 128, 128, 0.05);
-        border-radius: 15px;
-        padding: 18px;
-        border-top: 4px solid  #0974e6;
-        height: 100%;
-        margin-bottom: 10px;
-    }
-    .kategori-kutusu3 {
-        background-color: rgba(128, 128, 128, 0.05);
-        border-radius: 15px;
-        padding: 18px;
-        border-top: 4px solid #05f250;
         height: 100%;
         margin-bottom: 10px;
     }
@@ -167,9 +151,9 @@ s1, s2, s3 = st.columns(3)
 with s1:
     st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi">📜 Kayıt & Disiplin</div><div class="kategori-maddesi">• Evlilik durumu?<br>• Kopya cezası?</div></div>', unsafe_allow_html=True)
 with s2:
-    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi2">• 10/30 gün kuralı?<br>• Geç gelme sınırı?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi">• 10/30 gün kuralı?<br>• Geç gelme sınırı?</div></div>', unsafe_allow_html=True)
 with s3:
-    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi3">🎓 Başarı & Nakil</div><div class="kategori-maddesi3">• Kaç zayıfla kalınır?<br>• Nakil dönemi?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi3">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Kaç zayıfla kalınır?<br>• Nakil dönemi?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
 
 for ileti in st.session_state.sohbet_gecmisi:
