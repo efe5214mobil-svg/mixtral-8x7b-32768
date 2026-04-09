@@ -41,7 +41,7 @@ def cevap_olustur(soru, vektor_db, istemci):
     kaynak_metin = "\n\n".join([belge.page_content for belge in ilgili_belgeler])
     
     sistem_mesaji = """Sen uzman bir MEB Mevzuat Asistanısın. Sadece yönetmelik kurallarına göre cevap ver.
-    1. Devamsızlık: Özürsüz 10, toplam 30 gün.
+    1. Devamsızlık: Özürsüz 10, Özürlü 20, toplam 30 gün.
     2. Başarı: Geçme notu 50. 6 dersten fazla başarısızlıkta sınıf tekrarı.
     3. Disiplin: Kopya ve sigara kınama cezasıdır.
     4. Sorumluluk sınavları Birinci dönemin ilk haftası, ikinci dönemin ilk haftası ve son iki hafta içerisinde yapılır.
@@ -106,7 +106,7 @@ s1, s2, s3 = st.columns(3)
 with s1:
     st.markdown('<div class="kategori-kutusu"><div class="kategori-basligi">📜 Kayıt & Disiplin</div><div class="kategori-maddesi">• Disiplin cezaları nelerdir?<br>• Kopya cezası?</div></div>', unsafe_allow_html=True)
 with s2:
-    st.markdown('<div class="kategori-kutusu2"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi">• 10/30 gün kuralı?<br>• Geç gelme sınırı?</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kategori-kutusu2"><div class="kategori-basligi2">⏳ Devamsızlık</div><div class="kategori-maddesi">• 10/30 gün kuralı nedir?<br>• Okuldan yarım gün izin alırsam devamsızlık kaç gün sayılır? <br> • Toplam devamsızlık sınırı hangi durumlarda 60 güne çıkar?</div></div>', unsafe_allow_html=True)
 with s3:
     st.markdown('<div class="kategori-kutusu3"><div class="kategori-basligi3">🎓 Başarı & Nakil</div><div class="kategori-maddesi">• Kaç zayıfla kalınır?<br>• Nakil dönemi? <br> • Onur Belgesi alabilmek için gerekli şartlar nelerdir?</div></div>', unsafe_allow_html=True)
 st.markdown("---")
