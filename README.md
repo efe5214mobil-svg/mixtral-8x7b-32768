@@ -9,11 +9,11 @@ Bu proje, Millî Eğitim Bakanlığı (MEB) yönetmelik metinlerini analiz eden 
 • Büyük dil modeli (LLM) ile mevzuat tabanlı akıllı cevap üretmek
 • Eğitim ve araştırma süreçlerini kolaylaştırmak
 
-⚙️ Kullanılan Teknolojiler
- • Python
- • Streamlit
- • Yapay Zekâ / NLP
- • Meta LLaMA 3.3 70B Versatile (Large Language Model)
+⚙️ Kullanılan Teknolojiler 
+ • Python 
+ • Streamlit 
+ • Yapay Zekâ / NLP 
+ • Meta LLaMA 3.3 70B Versatile (Large Language Model) 
  
 🤖 Model Mimarisi
 
